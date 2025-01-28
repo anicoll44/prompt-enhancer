@@ -95,7 +95,7 @@ def stream_gpt_response(chat_history):
         messages=chat_history,
         temperature=0.2,
         stream=True,
-        max_tokens: 5000
+        max_tokens=5000
     )
     for chunk in response:
         chunk_delta = chunk["choices"][0].get("delta", {})
