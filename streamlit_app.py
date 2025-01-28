@@ -1,18 +1,13 @@
 import streamlit as st
 import openai
 import os
+import base64
 
-# -----------------------------------------------------------------
-# 1) Configure your OpenAI credentials
-# -----------------------------------------------------------------
 # If using Streamlit secrets (recommended):
 OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
-
 openai.api_key = OPENAI_API_KEY
 
-# -----------------------------------------------------------------
-# 2) The system prompt (verbatim from your request)
-# -----------------------------------------------------------------
+# 2) Updated system prompt
 SYSTEM_PROMPT = """You are an expert at developing smart prompts for an AI web development agent that helps non technical users build web components and pages. You need to help enhance prompts provided by non technical users through your strong expertise in ReactJS, NextJS, JavaScript, TypeScript, HTML, CSS and modern UI/UX frameworks (e.g., TailwindCSS, Shadcn, Radix). You carefully provide accurate, factual, thoughtful prompt suggestions and answers, and are a genius at reasoning.
 
 YOUR RESPONSE MUST BE A PROMPT FOLLOWING THE BELOW INSTRUCTIONS THAT A USER CAN USE DIRECTLY. YOUR ROLE IS NOT TO GENERATE CODE. YOUR ROLE IS TO GENERATE A SMART PROMPT. IF ANY OF THESE INSTRUCTIONS CANNOT BE FOLLOWED DUE TO LIMITED INFORMATION FROM THE USER, YOU MUST GUIDE THEM IN PROVIDING SUCH INFORMATION.
@@ -31,6 +26,7 @@ REQUIREMENTS
 - Break requests into smaller parts. Try to include examples of what they want.
 - Be specific about what should remain unchanged: Mention explicitly that no modifications should occur to other parts of the page
 - If you have specific technologies you want to use, say that in your prompt.
+
 PROMPT GUIDELINES
 → Page level versus component/element level prompts
 Switch between levels as needed - start with page level prompts for overall structure, then drill down to single elements for fine-tuning. Or start from a single element for simplicity, and then go back to page level as you add more elements.
@@ -88,26 +84,18 @@ EX: describe the exact issue with context: This date picker [screenshot] is show
 EX: explain the specific problem with details: When I hit the 'manage teachers' button [screenshot] it should take me back to [page name/route] right now, nothing is happening when I click it
 """
 
-# -----------------------------------------------------------------
-# 3) Initialize session state for storing the conversation
-# -----------------------------------------------------------------
+# 3) Initialize session state for the conversation
 if "messages" not in st.session_state:
     st.session_state["messages"] = [
         {"role": "system", "content": SYSTEM_PROMPT}
     ]
 
-# -----------------------------------------------------------------
-# 4) Helper function to stream ChatCompletion responses
-# -----------------------------------------------------------------
+# 4) Stream GPT responses
 def stream_gpt_response(chat_history):
-    """
-    Expects chat_history to be a list of {"role":..., "content":...} dicts.
-    Yields tokens from OpenAI's ChatCompletion API using stream=True.
-    """
     response = openai.ChatCompletion.create(
-        model="gpt-4o-2024-08-06",  # or your GPT4o endpoint
+        model="gpt-4",  # Use GPT4o if appropriate
         messages=chat_history,
-        temperature=0,
+        temperature=0.7,
         stream=True
     )
     for chunk in response:
@@ -115,62 +103,59 @@ def stream_gpt_response(chat_history):
         if "content" in chunk_delta:
             yield chunk_delta["content"]
 
-# -----------------------------------------------------------------
-# 5) Display the existing conversation (excluding the system role)
-# -----------------------------------------------------------------
-st.title("Genetic Prompt Enhancer")
+# 5) Display conversation so far (excluding system messages)
+st.title("Prompt Enhancement Chatbot (GPT-4)")
 
 for msg in st.session_state["messages"]:
     if msg["role"] == "system":
-        # Hide system message from chat display
         continue
     with st.chat_message(msg["role"]):
         st.write(msg["content"])
 
-# -----------------------------------------------------------------
-# 6) Input area for the user's text, plus optional file uploads
-# -----------------------------------------------------------------
+# 6) Input area for the user's text + file uploads
 def user_interaction():
-    # Let user type in text
     user_prompt = st.chat_input("Type your prompt or request here...")
-    # Allow multi-file upload (images, docs, etc.)
-    uploaded_files = st.file_uploader("Upload any related files or images (optional)", 
-                                      accept_multiple_files=True, type=None)
-
+    uploaded_files = st.file_uploader(
+        "Upload files/images (optional)",
+        accept_multiple_files=True,
+        type=None
+    )
     return user_prompt, uploaded_files
 
 user_prompt, user_files = user_interaction()
 
-# -----------------------------------------------------------------
-# 7) If the user submitted text, handle it and produce a streamed response
-# -----------------------------------------------------------------
+# 7) If the user submitted text, process and produce a streamed response
 if user_prompt:
-    # Incorporate file info in the user's message if provided
     file_info_text = ""
     if user_files:
         file_descriptions = []
         for f in user_files:
             content_size = len(f.getvalue())
-            file_descriptions.append(f"File name: {f.name}, size: {content_size} bytes")
-        file_info_text = "\nAttached file(s):\n" + "\n".join(file_descriptions)
+            # Base64-encode the file data
+            encoded_content = base64.b64encode(f.getvalue()).decode("utf-8")
+            file_descriptions.append(
+                f"""
+File name: {f.name}, size: {content_size} bytes
+Base64 data:
+{encoded_content}
+"""
+            )
+        file_info_text = "\n---\nAttached file(s):\n" + "\n".join(file_descriptions)
 
-    # Add user's new message to chat history
     user_full_message = user_prompt.strip()
     if file_info_text:
-        user_full_message += "\n" + file_info_text
+        user_full_message += file_info_text
 
     st.session_state["messages"].append({"role": "user", "content": user_full_message})
 
-    # Prepare the streamed chatbot response
+    # Stream the assistant's response
     with st.chat_message("assistant"):
         partial_response = ""
         response_container = st.empty()
         for chunk in stream_gpt_response(st.session_state["messages"]):
             partial_response += chunk
-            # Display the growing response with a typing indicator
             response_container.markdown(partial_response + "▌")
-        # Final updated response (remove typing cursor)
+        # Final display (remove cursor)
         response_container.markdown(partial_response)
 
-    # Add the assistant's full response to the chat history
     st.session_state["messages"].append({"role": "assistant", "content": partial_response})
