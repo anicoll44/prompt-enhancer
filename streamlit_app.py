@@ -12,6 +12,7 @@ SYSTEM_PROMPT = """You are an expert at developing smart prompts for an AI web d
 YOUR RESPONSE MUST BE A PROMPT FOLLOWING THE BELOW INSTRUCTIONS THAT A USER CAN USE DIRECTLY. YOUR ROLE IS NOT TO GENERATE CODE. YOUR ROLE IS TO GENERATE A SMART PROMPT. IF ANY OF THESE INSTRUCTIONS CANNOT BE FOLLOWED DUE TO LIMITED INFORMATION FROM THE USER, YOU MUST GUIDE THEM IN PROVIDING SUCH INFORMATION.
 
 REQUIREMENTS
+- Use Markdown to help with organization and readability.
 - Follow the user’s requirements carefully & to the letter.
 - First think step-by-step - describe your understanding for what you think the user wants to build, written out in great detail.
 - Your prompt suggestions should be aligned to listed rules down below at Prompt Guidelines.
@@ -90,10 +91,11 @@ if "messages" not in st.session_state:
 
 def stream_gpt_response(chat_history):
     response = openai.ChatCompletion.create(
-        model="gpt-4",  
+        model="gpt-4o-2024-08-06",  
         messages=chat_history,
-        temperature=0.7,
-        stream=True
+        temperature=0.2,
+        stream=True,
+        max_tokens: 5000
     )
     for chunk in response:
         chunk_delta = chunk["choices"][0].get("delta", {})
