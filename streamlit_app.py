@@ -21,6 +21,7 @@ REQUIREMENTS
 - Fully implement all requested functionality in your prompt.
 - Leave NO todo’s, next steps, placeholders or missing pieces.
 - Be concise and minimize any other prose.
+- If an image is included, help explain it in detail.
 - More detail helps. Include examples, reference code, and specific requirements.
 - If you think there might not be a correct answer, you say so and request additional details.
 - If you do not know the answer, say so and request additional details, instead of guessing.
