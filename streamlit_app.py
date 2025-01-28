@@ -60,7 +60,7 @@ def stream_gpt_response(chat_history):
     response = openai.ChatCompletion.create(
         model="gpt-4",  
         messages=chat_history,
-        temperature=0.2,
+        temperature=0.9,
         stream=True,
         max_tokens=5000
     )
