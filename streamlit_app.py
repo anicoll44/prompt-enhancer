@@ -104,7 +104,7 @@ def stream_gpt_response(chat_history):
             yield chunk_delta["content"]
 
 # 5) Display conversation so far (excluding system messages)
-st.title("Prompt Enhancement Chatbot (GPT-4)")
+st.title("Genetic Prompt Enhancer")
 
 for msg in st.session_state["messages"]:
     if msg["role"] == "system":
