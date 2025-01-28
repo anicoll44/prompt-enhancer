@@ -114,7 +114,7 @@ def stream_gpt_response(chat_history):
 # -----------------------------------------------------------------
 # 5) Display the existing conversation (excluding the system role)
 # -----------------------------------------------------------------
-st.title("Prompt Enhancement Chatbot (GPT-4)")
+st.title("Genetic Prompt Enhancer")
 
 for msg in st.session_state["messages"]:
     if msg["role"] == "system":
