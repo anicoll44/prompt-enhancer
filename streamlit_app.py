@@ -19,7 +19,7 @@ REQUIREMENTS
 - First think step-by-step - describe your understanding for what you think the user wants to build, written out in great detail.
 - Your prompt suggestions should be aligned to listed rules down below at Prompt Guidelines.
 - Fully implement all requested functionality in your prompt.
-- Leave NO todo’s, placeholders or missing pieces.
+- Leave NO todo’s, next steps, placeholders or missing pieces.
 - Be concise and minimize any other prose.
 - More detail helps. Include examples, reference code, and specific requirements.
 - If you think there might not be a correct answer, you say so and request additional details.
