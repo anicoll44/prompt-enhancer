@@ -2,6 +2,8 @@ import streamlit as st
 import openai
 import os
 import base64
+import io
+from PIL import Image
 
 # 1) Configure your OpenAI credentials
 OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
@@ -89,9 +91,26 @@ if "messages" not in st.session_state:
         {"role": "system", "content": SYSTEM_PROMPT}
     ]
 
+# Helper function to compress an image until it’s under max_size bytes or down to minimal quality
+def compress_image(image_bytes, max_size=250_000, min_quality=10, step=5):
+    """
+    Compresses a JPEG image repeatedly (by decreasing quality) 
+    until its size is under max_size bytes or quality < min_quality.
+    Returns the compressed image bytes (regardless of size if minimal quality is reached).
+    """
+    img = Image.open(io.BytesIO(image_bytes)).convert("RGB")  # ensure JPEG-compatible mode
+    quality = 85  # start with a reasonably high quality
+    while True:
+        buf = io.BytesIO()
+        img.save(buf, format="JPEG", optimize=True, quality=quality)
+        data = buf.getvalue()
+        if len(data) <= max_size or quality <= min_quality:
+            return data
+        quality -= step
+
 def stream_gpt_response(chat_history):
     response = openai.ChatCompletion.create(
-        model="gpt-4o-2024-08-06",  
+        model="gpt-4",  
         messages=chat_history,
         temperature=0.2,
         stream=True,
@@ -102,75 +121,64 @@ def stream_gpt_response(chat_history):
         if "content" in chunk_delta:
             yield chunk_delta["content"]
 
-st.title("Prompt Enhancement Chatbot (GPT-4)")
+# Display the conversation so far (excluding system)
+st.title("Genetic Prompt Enhancement")
 
-# Display conversation so far (excluding system)
 for msg in st.session_state["messages"]:
     if msg["role"] == "system":
         continue
     with st.chat_message(msg["role"]):
         st.write(msg["content"])
 
-# Input + file uploads
 def user_interaction():
-    user_prompt = st.chat_input("Type your prompt or request here...")
+    user_prompt = st.chat_input("Type your prompt/request here…")
     uploaded_files = st.file_uploader("Upload file(s)/image(s)", accept_multiple_files=True)
     return user_prompt, uploaded_files
 
 user_prompt, user_files = user_interaction()
 
 if user_prompt:
-    # Build a section describing the images
-    images_data = []
+    # Build info about uploaded images
+    images_section = ""
     if user_files:
-        for f in user_files:
+        images_section = "\n---\nUploaded image(s):\n"
+        for i, f in enumerate(user_files, start=1):
             file_bytes = f.getvalue()
             file_size = len(file_bytes)
-            # Example limit check (skip large uploads)
+
+            # Compress if > 250 KB
             if file_size > 250_000:
-                st.warning(f"Skipping {f.name} - file too large ({file_size} bytes).")
-                continue
-            # Base64-encode the file
+                compressed_bytes = compress_image(file_bytes, max_size=250_000)
+                compressed_size = len(compressed_bytes)
+                if compressed_size < file_size:
+                    st.info(f"Compressed {f.name} from {file_size} bytes to {compressed_size} bytes.")
+                file_bytes = compressed_bytes
+                file_size = compressed_size
+
             base64_image = base64.b64encode(file_bytes).decode("utf-8")
-            # Add to images list
-            images_data.append({
-                "type": "image_url",
-                "image_url": {
-                    "url": f"data:image/jpeg;base64,{base64_image}"
-                },
-                "file_name": f.name,
-                "file_size_bytes": file_size
-            })
-    
-    # Convert images_data into a string to append to the user prompt
-    images_section = ""
-    if images_data:
-        images_section = "\n---\nUploaded image(s):\n"
-        for i, img_info in enumerate(images_data, start=1):
             images_section += (
                 f"Image {i}:\n"
-                f"  Name: {img_info['file_name']}, Size: {img_info['file_size_bytes']} bytes\n"
-                f"  Type: {img_info['type']}\n"
-                f"  URL: {img_info['image_url']['url'][:100]}... (truncated)\n"
+                f"  Name: {f.name}\n"
+                f"  Size: {file_size} bytes\n"
+                f"  Data URI (first 80 chars): data:image/jpeg;base64,{base64_image[:80]}…\n"
             )
-            # Above, we only show the first 100 characters of the data URI for brevity.
 
-    # Combine user message + images info
-    user_full_message = user_prompt.strip()
+    # Combine user prompt + images info
+    final_user_message = user_prompt.strip()
     if images_section:
-        user_full_message += images_section
+        final_user_message += images_section
 
-    # Add to conversation
-    st.session_state["messages"].append({"role": "user", "content": user_full_message})
+    # Add to conversation history
+    st.session_state["messages"].append({"role": "user", "content": final_user_message})
 
-    # Stream assistant's response
+    # Stream the assistant's response
     with st.chat_message("assistant"):
         partial_response = ""
         response_container = st.empty()
         for chunk in stream_gpt_response(st.session_state["messages"]):
             partial_response += chunk
             response_container.markdown(partial_response + "▌")
-        # Final update - remove the cursor
+        # Final (remove the cursor)
         response_container.markdown(partial_response)
 
     st.session_state["messages"].append({"role": "assistant", "content": partial_response})
